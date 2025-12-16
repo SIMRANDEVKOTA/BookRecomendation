@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "525945317686",
+    "firebase_url": "https://book-8d6be-default-rtdb.firebaseio.com",
+    "project_id": "book-8d6be",
+    "storage_bucket": "book-8d6be.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:525945317686:android:79432b601c667628176b97",
+        "android_client_info": {
+          "package_name": "com.example.bookrecommendation"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAs_MuD00APPK_x4l5EFpLSkqqFqLsVISM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
