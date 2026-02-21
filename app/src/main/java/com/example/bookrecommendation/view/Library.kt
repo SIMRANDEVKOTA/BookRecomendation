@@ -2,12 +2,15 @@ package com.example.bookrecommendation.view
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -17,8 +20,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,85 +29,112 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bookrecommendation.R
+import com.example.bookrecommendation.model.BookStatus
+import com.example.bookrecommendation.model.LibraryBook
 import com.example.bookrecommendation.ui.theme.purple
 import com.example.bookrecommendation.ui.theme.brown
 import com.example.bookrecommendation.ui.theme.pink
-
-// Unique names for Library data
-data class LibraryBook(
-    val title: String,
-    val author: String,
-    val imageRes: Int,
-    val totalPages: Int = 0,
-    val currentPage: Int = 0,
-    val rating: Int = 0,
-    val review: String = ""
-)
-
-data class LibraryGenreSection(val genre: String, val books: List<LibraryBook>)
+import com.example.bookrecommendation.viewmodel.LibraryViewModel
+import java.util.UUID
 
 @Composable
-fun LibraryScreen(modifier: Modifier = Modifier) {
-
+fun LibraryScreen(viewModel: LibraryViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Reading", "Saved", "Finished")
+    val allBooks by viewModel.books.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFFF8F5FF), Color.White)
-                )
-            )
-            .padding(16.dp)
-    ) {
+    var showAddDialog by remember { mutableStateOf(false) }
 
-        LibraryHeader()
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = Color.Transparent,
-            contentColor = purple,
-            indicator = { tabPositions ->
-                if (selectedTab < tabPositions.size) {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = pink,
-                        height = 3.dp
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = brown,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Book")
+            }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFFF8F5FF), Color.White)
                     )
-                }
-            },
-            divider = { }
+                )
+                .padding(16.dp)
         ) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = {
-                        Text(
-                            title,
-                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 16.sp
+            LibraryHeader()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color.Transparent,
+                contentColor = purple,
+                indicator = { tabPositions ->
+                    if (selectedTab < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = pink,
+                            height = 3.dp
                         )
                     }
+                },
+                divider = { }
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = {
+                            Text(
+                                title,
+                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 16.sp
+                            )
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            when (selectedTab) {
+                0 -> ReadingTab(
+                    books = allBooks.filter { it.status == BookStatus.READING },
+                    onUpdate = { viewModel.updateBook(it) },
+                    onDelete = { viewModel.deleteBook(it.id) }
+                )
+                1 -> SavedTab(
+                    books = allBooks.filter { it.status == BookStatus.SAVED },
+                    onUpdate = { viewModel.updateBook(it) },
+                    onDelete = { viewModel.deleteBook(it.id) }
+                )
+                2 -> FinishedTab(
+                    books = allBooks.filter { it.status == BookStatus.FINISHED },
+                    onUpdate = { viewModel.updateBook(it) },
+                    onDelete = { viewModel.deleteBook(it.id) }
                 )
             }
         }
+    }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        when (selectedTab) {
-            0 -> ReadingTab()
-            1 -> SavedTab()
-            2 -> FinishedTab()
-        }
+    if (showAddDialog) {
+        AddBookDialog(
+            onDismiss = { showAddDialog = false },
+            onConfirm = { newBook ->
+                viewModel.addBook(newBook)
+                showAddDialog = false
+            }
+        )
     }
 }
 
@@ -114,37 +142,43 @@ fun LibraryScreen(modifier: Modifier = Modifier) {
 fun LibraryHeader() {
     Column {
         Text("My Library", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-
     }
 }
 
 @Composable
-fun ReadingTab() {
-    val readingBooks = remember {
-        mutableStateListOf(
-            LibraryBook("King of Wrath", "Ana Huang", R.drawable.wrath, 400, 145),
-            LibraryBook("Comeback", "Author Name", R.drawable.come, 350, 50)
-        )
-    }
-
+fun ReadingTab(
+    books: List<LibraryBook>,
+    onUpdate: (LibraryBook) -> Unit,
+    onDelete: (LibraryBook) -> Unit
+) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 20.dp)
+        contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        items(readingBooks) { book ->
-            var currentPage by remember { mutableIntStateOf(book.currentPage) }
+        items(books, key = { it.id }) { book ->
             ReadingBookCard(
-                book = book.copy(currentPage = currentPage),
-                onProgressUpdate = { newPage -> currentPage = newPage },
-                onFinish = { currentPage = book.totalPages }
+                book = book,
+                onUpdateProgress = { newPage ->
+                    onUpdate(book.copy(currentPage = newPage))
+                },
+                onFinish = {
+                    onUpdate(book.copy(status = BookStatus.FINISHED, currentPage = book.totalPages))
+                },
+                onDelete = { onDelete(book) }
             )
         }
     }
 }
 
 @Composable
-fun ReadingBookCard(book: LibraryBook, onProgressUpdate: (Int) -> Unit, onFinish: () -> Unit) {
-    val progress = book.currentPage.toFloat() / book.totalPages.toFloat()
+fun ReadingBookCard(
+    book: LibraryBook,
+    onUpdateProgress: (Int) -> Unit,
+    onFinish: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val progress = if (book.totalPages > 0) book.currentPage.toFloat() / book.totalPages.toFloat() else 0f
+    var showEditProgress by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -155,14 +189,23 @@ fun ReadingBookCard(book: LibraryBook, onProgressUpdate: (Int) -> Unit, onFinish
         Column(modifier = Modifier.padding(16.dp)) {
             Row {
                 Image(
-                    painter = painterResource(id = book.imageRes),
+                    painter = painterResource(id = if (book.imageRes != 0) book.imageRes else R.drawable.come),
                     contentDescription = book.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.width(70.dp).height(110.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(book.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(book.title, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray)
+                        }
+                    }
                     Text(book.author, color = Color.Gray, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     LinearProgressIndicator(
@@ -182,7 +225,7 @@ fun ReadingBookCard(book: LibraryBook, onProgressUpdate: (Int) -> Unit, onFinish
             HorizontalDivider(color = Color(0xFFF0F0F0))
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                OutlinedButton(onClick = { }, shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { showEditProgress = true }, shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Update Progress", fontSize = 12.sp)
@@ -196,29 +239,44 @@ fun ReadingBookCard(book: LibraryBook, onProgressUpdate: (Int) -> Unit, onFinish
             }
         }
     }
+
+    if (showEditProgress) {
+        UpdateProgressDialog(
+            current = book.currentPage,
+            total = book.totalPages,
+            onDismiss = { showEditProgress = false },
+            onUpdate = { newPage ->
+                onUpdateProgress(newPage)
+                showEditProgress = false
+            }
+        )
+    }
 }
 
 @Composable
-fun SavedTab() {
-    val savedLibrary = listOf(
-        LibraryGenreSection("Romance", listOf(
-            LibraryBook(title = "King of Envy", author = "Ana Huang", imageRes = R.drawable.envy),
-            LibraryBook(title = "King of Wrath", author = "Ana Huang", imageRes = R.drawable.wrath)
-        )),
-        LibraryGenreSection("Self-Help", listOf(
-            LibraryBook(title = "Atomic Habits", author = "James Clear", imageRes = R.drawable.come),
-            LibraryBook(title = "Deep Work", author = "Cal Newport", imageRes = R.drawable.heart)
-        ))
-    )
+fun SavedTab(
+    books: List<LibraryBook>,
+    onUpdate: (LibraryBook) -> Unit,
+    onDelete: (LibraryBook) -> Unit
+) {
+    val grouped = books.groupBy { it.genre }
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(24.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-        items(savedLibrary) { section ->
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(24.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
+        items(grouped.keys.toList()) { genre ->
             Column {
-                Text(section.genre, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                Text(genre, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                 Spacer(modifier = Modifier.height(12.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(end = 16.dp)) {
-                    items(section.books) { book ->
-                        Box(modifier = Modifier.width(300.dp)) { SavedBookCard(book = book) }
+                    items(grouped[genre] ?: emptyList(), key = { it.id }) { book ->
+                        Box(modifier = Modifier.width(300.dp)) {
+                            SavedBookCard(
+                                book = book,
+                                onStartReading = {
+                                    onUpdate(book.copy(status = BookStatus.READING, totalPages = if (book.totalPages == 0) 300 else book.totalPages))
+                                },
+                                onDelete = { onDelete(book) }
+                            )
+                        }
                     }
                 }
             }
@@ -227,30 +285,30 @@ fun SavedTab() {
 }
 
 @Composable
-fun SavedBookCard(book: LibraryBook) {
+fun SavedBookCard(book: LibraryBook, onStartReading: () -> Unit, onDelete: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(6.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Image(painter = painterResource(id = book.imageRes), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(70.dp).height(105.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray))
+                Image(painter = painterResource(id = if (book.imageRes != 0) book.imageRes else R.drawable.come), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(70.dp).height(105.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(book.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(book.author, fontSize = 14.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Saved on: Dec 12, 2024", fontSize = 12.sp, color = Color.LightGray)
+                    Text("Saved in: ${book.genre}", fontSize = 12.sp, color = Color.LightGray)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = Color(0xFFF0F0F0))
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { }, modifier = Modifier.height(40.dp)) {
+                TextButton(onClick = onDelete, modifier = Modifier.height(40.dp)) {
                     Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color.Gray, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Remove", color = Color.Gray)
                 }
-                Button(onClick = { }, colors = ButtonDefaults.buttonColors(containerColor = brown), shape = RoundedCornerShape(8.dp), modifier = Modifier.height(40.dp)) {
+                Button(onClick = onStartReading, colors = ButtonDefaults.buttonColors(containerColor = brown), shape = RoundedCornerShape(8.dp), modifier = Modifier.height(40.dp)) {
                     Icon(Icons.Default.PlayArrow, contentDescription = "Start Reading", modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Start Reading")
@@ -261,27 +319,59 @@ fun SavedBookCard(book: LibraryBook) {
 }
 
 @Composable
-fun FinishedTab() {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-        items(2) {
-            FinishedBookCard(book = LibraryBook(title = "Heart Still Beats", author = "Author Name", imageRes = R.drawable.heart, rating = 5, review = "Dark, gripping and unforgettable. I couldn't put it down."))
+fun FinishedTab(
+    books: List<LibraryBook>,
+    onUpdate: (LibraryBook) -> Unit,
+    onDelete: (LibraryBook) -> Unit
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
+        items(books, key = { it.id }) { book ->
+            FinishedBookCard(
+                book = book,
+                onDelete = { onDelete(book) },
+                onEditReview = { updatedBook -> onUpdate(updatedBook) }
+            )
         }
     }
 }
 
 @Composable
-fun FinishedBookCard(book: LibraryBook) {
+fun FinishedBookCard(book: LibraryBook, onDelete: () -> Unit, onEditReview: (LibraryBook) -> Unit) {
+    var showReviewDialog by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(4.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row {
-                Image(painter = painterResource(id = book.imageRes), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(70.dp).height(105.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray))
+                Image(painter = painterResource(id = if (book.imageRes != 0) book.imageRes else R.drawable.come), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(70.dp).height(105.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text(book.title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(book.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray)
+                        }
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Finished on: Dec 10, 2024", fontSize = 12.sp, color = Color.Gray)
+                    Text("Finished recently", fontSize = 12.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row { repeat(5) { index -> Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = if (index < book.rating) Color(0xFFFFC107) else Color.LightGray, modifier = Modifier.size(20.dp)) } }
+                    Row {
+                        repeat(5) { index ->
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = if (index < book.rating) Color(0xFFFFC107) else Color.LightGray,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable {
+                                        onEditReview(book.copy(rating = index + 1))
+                                    }
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -294,10 +384,10 @@ fun FinishedBookCard(book: LibraryBook) {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                OutlinedButton(onClick = { }, shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { showReviewDialog = true }, shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit", fontSize = 12.sp, maxLines = 1)
+                    Text("Edit Review", fontSize = 12.sp, maxLines = 1)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(onClick = { }, colors = ButtonDefaults.buttonColors(containerColor = brown), shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1.2f)) {
@@ -308,10 +398,129 @@ fun FinishedBookCard(book: LibraryBook) {
             }
         }
     }
+
+    if (showReviewDialog) {
+        ReviewDialog(
+            initialReview = book.review,
+            initialRating = book.rating,
+            onDismiss = { showReviewDialog = false },
+            onConfirm = { review, rating ->
+                onEditReview(book.copy(review = review, rating = rating))
+                showReviewDialog = false
+            }
+        )
+    }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun LibraryPreview() {
-    LibraryScreen()
+fun ReviewDialog(
+    initialReview: String,
+    initialRating: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Int) -> Unit
+) {
+    var review by remember { mutableStateOf(initialReview) }
+    var rating by remember { mutableIntStateOf(initialRating) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Write a Review") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    repeat(5) { index ->
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = if (index < rating) Color(0xFFFFC107) else Color.LightGray,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clickable { rating = index + 1 }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = review,
+                    onValueChange = { review = it },
+                    label = { Text("Your Review") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(review, rating) }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun AddBookDialog(onDismiss: () -> Unit, onConfirm: (LibraryBook) -> Unit) {
+    var title by remember { mutableStateOf("") }
+    var author by remember { mutableStateOf("") }
+    var genre by remember { mutableStateOf("") }
+    var totalPages by remember { mutableStateOf("300") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Book to Saved") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") })
+                OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Author") })
+                OutlinedTextField(value = genre, onValueChange = { genre = it }, label = { Text("Genre") })
+                OutlinedTextField(
+                    value = totalPages,
+                    onValueChange = { totalPages = it },
+                    label = { Text("Total Pages") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (title.isNotBlank()) {
+                    onConfirm(LibraryBook(
+                        title = title,
+                        author = author,
+                        genre = genre,
+                        imageRes = R.drawable.come,
+                        totalPages = totalPages.toIntOrNull() ?: 300,
+                        status = BookStatus.SAVED
+                    ))
+                }
+            }) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun UpdateProgressDialog(current: Int, total: Int, onDismiss: () -> Unit, onUpdate: (Int) -> Unit) {
+    var newPage by remember { mutableStateOf(current.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Update Progress") },
+        text = {
+            Column {
+                Text("Total Pages: $total", fontSize = 14.sp)
+                OutlinedTextField(
+                    value = newPage,
+                    onValueChange = { newPage = it },
+                    label = { Text("Current Page") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val page = newPage.toIntOrNull() ?: current
+                onUpdate(page.coerceIn(0, total))
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

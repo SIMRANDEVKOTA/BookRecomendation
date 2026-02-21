@@ -5,13 +5,14 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-android {namespace = "com.example.bookrecommendation"
-    compileSdk = 36
+android {
+    namespace = "com.example.bookrecommendation"
+    compileSdk = 36 // ⭐ CHANGED from 35 to 36 to fix dependency warnings ⭐
 
     defaultConfig {
         applicationId = "com.example.bookrecommendation"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 36 // ⭐ CHANGED from 35 to 36 for consistency ⭐
         versionCode = 1
         versionName = "1.0"
 
@@ -40,16 +41,13 @@ android {namespace = "com.example.bookrecommendation"
 }
 
 dependencies {
-
-    // --- Firebase Dependencies ---
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.firebase.database)
-
-    // --- Android & Compose Dependencies ---
     implementation(libs.androidx.core.ktx)
+
+    // ⭐ CORRECTED: Uses the new name defined in TOML file ⭐
     implementation(libs.androidx.material.icons.extended)
+
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -57,7 +55,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    // --- Testing Dependencies ---
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.database)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

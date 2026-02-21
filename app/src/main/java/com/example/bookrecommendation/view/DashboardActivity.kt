@@ -13,17 +13,18 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-// Ensure these imports match your Theme file
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bookrecommendation.repository.LibraryRepoImpl
 import com.example.bookrecommendation.ui.theme.black
 import com.example.bookrecommendation.ui.theme.grey
 import com.example.bookrecommendation.ui.theme.white
+import com.example.bookrecommendation.viewmodel.LibraryViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 
-// This Class definition is what allows LoginActivity to navigate here
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +38,15 @@ class DashboardActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardBody() {
+    // Initialize Repository and ViewModel
+    val libraryRepo = remember { LibraryRepoImpl() }
+    val libraryViewModel: LibraryViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return LibraryViewModel(libraryRepo) as T
+            }
+        }
+    )
 
     var selectedIndex by remember { mutableIntStateOf(0) }
 
@@ -79,22 +89,20 @@ fun DashboardBody() {
                             selectedTextColor = white,
                             unselectedIconColor = white.copy(alpha = 0.6f),
                             unselectedTextColor = white.copy(alpha = 0.6f),
-                            indicatorColor = black.copy(alpha = 0.2f) // Subtle highlight for selected item
+                            indicatorColor = black.copy(alpha = 0.2f)
                         )
                     )
                 }
             }
         }
     ) { paddingValues ->
-
-        // paddingValues ensures content isn't hidden behind the top or bottom bars
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedIndex) {
-                0 -> Home()
+                0 -> Home(viewModel = libraryViewModel)
                 1 -> SearchScreen()
-                2 -> LibraryScreen()
+                2 -> LibraryScreen(viewModel = libraryViewModel)
                 3 -> ProfileScreen()
-                else -> Home()
+                else -> Home(viewModel = libraryViewModel)
             }
         }
     }
@@ -103,7 +111,7 @@ fun DashboardBody() {
 @Preview(showBackground = true)
 @Composable
 fun DashboardPreview() {
-    MaterialTheme {
-        DashboardBody()
-    }
+    // For preview purposes, we can't easily mock the Firebase-dependent ViewModel
+    // but this structure fixes the compilation error.
+    DashboardBody()
 }

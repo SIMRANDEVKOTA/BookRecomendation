@@ -39,7 +39,7 @@
 
         <activity
             android:name=".view.DashboardActivity"
-            android:exported="false"
+            android:exported="true"
             android:label="Dashboard"
             android:theme="@style/Theme.BookRecommendation"/>
 
