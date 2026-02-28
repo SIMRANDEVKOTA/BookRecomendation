@@ -8,7 +8,7 @@ data class LibraryBook(
     val id: String = UUID.randomUUID().toString(),
     val title: String = "",
     val author: String = "",
-    val imageRes: Int = 0,
+    val imageUrl: String = "",
     val totalPages: Int = 0,
     val currentPage: Int = 0,
     val rating: Int = 0,

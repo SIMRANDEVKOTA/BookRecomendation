@@ -1,6 +1,5 @@
 package com.example.bookrecommendation.view
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,28 +25,31 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bookrecommendation.R
+import coil.compose.AsyncImage
 import com.example.bookrecommendation.model.BookStatus
 import com.example.bookrecommendation.model.LibraryBook
 import com.example.bookrecommendation.ui.theme.purple
 import com.example.bookrecommendation.ui.theme.brown
 import com.example.bookrecommendation.ui.theme.pink
 import com.example.bookrecommendation.viewmodel.LibraryViewModel
-import java.util.UUID
+
+// Fallback Cloudinary image shown when a book has no imageUrl set
+private const val FALLBACK_IMAGE_URL =
+    "https://res.cloudinary.com/YOUR_CLOUD_NAME/image/upload/f_auto,q_auto,w_300/books/default_cover"
+
+private fun bookImageUrl(imageUrl: String) =
+    imageUrl.ifBlank { FALLBACK_IMAGE_URL }
 
 @Composable
 fun LibraryScreen(viewModel: LibraryViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Reading", "Saved", "Finished")
     val allBooks by viewModel.books.collectAsState()
-
     var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -65,11 +67,7 @@ fun LibraryScreen(viewModel: LibraryViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFFF8F5FF), Color.White)
-                    )
-                )
+                .background(Brush.verticalGradient(listOf(Color(0xFFF8F5FF), Color.White)))
                 .padding(16.dp)
         ) {
             LibraryHeader()
@@ -140,30 +138,17 @@ fun LibraryScreen(viewModel: LibraryViewModel) {
 
 @Composable
 fun LibraryHeader() {
-    Column {
-        Text("My Library", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-    }
+    Text("My Library", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
 }
 
 @Composable
-fun ReadingTab(
-    books: List<LibraryBook>,
-    onUpdate: (LibraryBook) -> Unit,
-    onDelete: (LibraryBook) -> Unit
-) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
-    ) {
+fun ReadingTab(books: List<LibraryBook>, onUpdate: (LibraryBook) -> Unit, onDelete: (LibraryBook) -> Unit) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
         items(books, key = { it.id }) { book ->
             ReadingBookCard(
                 book = book,
-                onUpdateProgress = { newPage ->
-                    onUpdate(book.copy(currentPage = newPage))
-                },
-                onFinish = {
-                    onUpdate(book.copy(status = BookStatus.FINISHED, currentPage = book.totalPages))
-                },
+                onUpdateProgress = { newPage -> onUpdate(book.copy(currentPage = newPage)) },
+                onFinish = { onUpdate(book.copy(status = BookStatus.FINISHED, currentPage = book.totalPages)) },
                 onDelete = { onDelete(book) }
             )
         }
@@ -188,11 +173,15 @@ fun ReadingBookCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row {
-                Image(
-                    painter = painterResource(id = if (book.imageRes != 0) book.imageRes else R.drawable.come),
+                AsyncImage(
+                    model = bookImageUrl(book.imageUrl),
                     contentDescription = book.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.width(70.dp).height(110.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray)
+                    modifier = Modifier
+                        .width(70.dp)
+                        .height(110.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Gray)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -216,8 +205,8 @@ fun ReadingBookCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(text = "${(progress * 100).toInt()}%", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text(text = "${book.currentPage} / ${book.totalPages} pages", color = Color.Gray, fontSize = 12.sp)
+                        Text("${(progress * 100).toInt()}%", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("${book.currentPage} / ${book.totalPages} pages", color = Color.Gray, fontSize = 12.sp)
                     }
                 }
             }
@@ -254,13 +243,8 @@ fun ReadingBookCard(
 }
 
 @Composable
-fun SavedTab(
-    books: List<LibraryBook>,
-    onUpdate: (LibraryBook) -> Unit,
-    onDelete: (LibraryBook) -> Unit
-) {
+fun SavedTab(books: List<LibraryBook>, onUpdate: (LibraryBook) -> Unit, onDelete: (LibraryBook) -> Unit) {
     val grouped = books.groupBy { it.genre }
-
     LazyColumn(verticalArrangement = Arrangement.spacedBy(24.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
         items(grouped.keys.toList()) { genre ->
             Column {
@@ -286,10 +270,24 @@ fun SavedTab(
 
 @Composable
 fun SavedBookCard(book: LibraryBook, onStartReading: () -> Unit, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(6.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Image(painter = painterResource(id = if (book.imageRes != 0) book.imageRes else R.drawable.come), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(70.dp).height(105.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray))
+                AsyncImage(
+                    model = bookImageUrl(book.imageUrl),
+                    contentDescription = book.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .width(70.dp)
+                        .height(105.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Gray)
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(book.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -319,11 +317,7 @@ fun SavedBookCard(book: LibraryBook, onStartReading: () -> Unit, onDelete: () ->
 }
 
 @Composable
-fun FinishedTab(
-    books: List<LibraryBook>,
-    onUpdate: (LibraryBook) -> Unit,
-    onDelete: (LibraryBook) -> Unit
-) {
+fun FinishedTab(books: List<LibraryBook>, onUpdate: (LibraryBook) -> Unit, onDelete: (LibraryBook) -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
         items(books, key = { it.id }) { book ->
             FinishedBookCard(
@@ -339,10 +333,24 @@ fun FinishedTab(
 fun FinishedBookCard(book: LibraryBook, onDelete: () -> Unit, onEditReview: (LibraryBook) -> Unit) {
     var showReviewDialog by remember { mutableStateOf(false) }
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(4.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row {
-                Image(painter = painterResource(id = if (book.imageRes != 0) book.imageRes else R.drawable.come), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(70.dp).height(105.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray))
+                AsyncImage(
+                    model = bookImageUrl(book.imageUrl),
+                    contentDescription = book.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .width(70.dp)
+                        .height(105.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Gray)
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Row(
@@ -366,20 +374,23 @@ fun FinishedBookCard(book: LibraryBook, onDelete: () -> Unit, onEditReview: (Lib
                                 tint = if (index < book.rating) Color(0xFFFFC107) else Color.LightGray,
                                 modifier = Modifier
                                     .size(20.dp)
-                                    .clickable {
-                                        onEditReview(book.copy(rating = index + 1))
-                                    }
+                                    .clickable { onEditReview(book.copy(rating = index + 1)) }
                             )
                         }
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Box(modifier = Modifier.fillMaxWidth().background(Color(0xFFF9F9F9), RoundedCornerShape(8.dp)).padding(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF9F9F9), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
                 Column {
                     Text("My Review:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = brown)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "\"${book.review}\"", fontStyle = FontStyle.Italic, fontSize = 14.sp, color = Color.DarkGray, lineHeight = 20.sp)
+                    Text("\"${book.review}\"", fontStyle = FontStyle.Italic, fontSize = 14.sp, color = Color.DarkGray, lineHeight = 20.sp)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -413,12 +424,7 @@ fun FinishedBookCard(book: LibraryBook, onDelete: () -> Unit, onEditReview: (Lib
 }
 
 @Composable
-fun ReviewDialog(
-    initialReview: String,
-    initialRating: Int,
-    onDismiss: () -> Unit,
-    onConfirm: (String, Int) -> Unit
-) {
+fun ReviewDialog(initialReview: String, initialRating: Int, onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit) {
     var review by remember { mutableStateOf(initialReview) }
     var rating by remember { mutableIntStateOf(initialRating) }
 
@@ -433,27 +439,15 @@ fun ReviewDialog(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
                             tint = if (index < rating) Color(0xFFFFC107) else Color.LightGray,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clickable { rating = index + 1 }
+                            modifier = Modifier.size(32.dp).clickable { rating = index + 1 }
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = review,
-                    onValueChange = { review = it },
-                    label = { Text("Your Review") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
-                )
+                OutlinedTextField(value = review, onValueChange = { review = it }, label = { Text("Your Review") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
             }
         },
-        confirmButton = {
-            Button(onClick = { onConfirm(review, rating) }) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        confirmButton = { Button(onClick = { onConfirm(review, rating) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -463,6 +457,7 @@ fun AddBookDialog(onDismiss: () -> Unit, onConfirm: (LibraryBook) -> Unit) {
     var author by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf("") }
     var totalPages by remember { mutableStateOf("300") }
+    var imageUrl by remember { mutableStateOf("") }  // Added: Cloudinary URL input
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -478,6 +473,11 @@ fun AddBookDialog(onDismiss: () -> Unit, onConfirm: (LibraryBook) -> Unit) {
                     label = { Text("Total Pages") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
+                OutlinedTextField(
+                    value = imageUrl,
+                    onValueChange = { imageUrl = it },
+                    label = { Text("Image URL (Cloudinary)") }
+                )
             }
         },
         confirmButton = {
@@ -487,7 +487,7 @@ fun AddBookDialog(onDismiss: () -> Unit, onConfirm: (LibraryBook) -> Unit) {
                         title = title,
                         author = author,
                         genre = genre,
-                        imageRes = R.drawable.come,
+                        imageUrl = imageUrl,
                         totalPages = totalPages.toIntOrNull() ?: 300,
                         status = BookStatus.SAVED
                     ))
