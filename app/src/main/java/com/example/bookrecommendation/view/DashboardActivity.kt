@@ -18,10 +18,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bookrecommendation.repository.LibraryRepoImpl
+import com.example.bookrecommendation.repository.UserRepoImpl
 import com.example.bookrecommendation.ui.theme.black
 import com.example.bookrecommendation.ui.theme.grey
 import com.example.bookrecommendation.ui.theme.white
 import com.example.bookrecommendation.viewmodel.LibraryViewModel
+import com.example.bookrecommendation.viewmodel.UserViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 
@@ -38,12 +40,23 @@ class DashboardActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardBody() {
-    // Initialize Repository and ViewModel
+    // Initialize Repositories
     val libraryRepo = remember { LibraryRepoImpl() }
+    val userRepo = remember { UserRepoImpl() }
+
+    // Initialize ViewModels
     val libraryViewModel: LibraryViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return LibraryViewModel(libraryRepo) as T
+            }
+        }
+    )
+
+    val userViewModel: UserViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return UserViewModel(userRepo) as T
             }
         }
     )
@@ -101,7 +114,7 @@ fun DashboardBody() {
                 0 -> Home(viewModel = libraryViewModel)
                 1 -> SearchScreen()
                 2 -> LibraryScreen(viewModel = libraryViewModel)
-                3 -> ProfileScreen()
+                3 -> ProfileScreen(userViewModel = userViewModel, libraryViewModel = libraryViewModel)
                 else -> Home(viewModel = libraryViewModel)
             }
         }
@@ -111,7 +124,5 @@ fun DashboardBody() {
 @Preview(showBackground = true)
 @Composable
 fun DashboardPreview() {
-    // For preview purposes, we can't easily mock the Firebase-dependent ViewModel
-    // but this structure fixes the compilation error.
     DashboardBody()
 }
